@@ -12,6 +12,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type RequeueError struct{}
+
+func (m *RequeueError) Error() string {
+	return "requeue"
+}
+
 func doesPodExist(c client.Client, loc types.NamespacedName) bool {
 	return c.Get(context.Background(), loc, &v1.Pod{}) == nil
 }
@@ -62,6 +68,16 @@ func getPodObject(tmsource tmv1.TmSource) *v1.Pod {
 		},
 		Status: v1.PodStatus{},
 	}
+}
+
+func isPodEnvDifferent(a *v1.Pod, b *v1.Pod) bool {
+	for i, env := range a.Spec.Containers[0].Env {
+		if env.Value != b.Spec.Containers[0].Env[i].Value {
+			return true
+		}
+	}
+
+	return false
 }
 
 func containsString(slice []string, s string) bool {

@@ -70,12 +70,15 @@ func (r *TmSourceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 		// Bootstrap tmsource pod.
 		if err := r.bootstrapTmSourcePod(config); err != nil {
+			if err.Error() == "requeue" {
+				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+			}
 			return ctrl.Result{}, err
 		}
 	} else if containsString(tmsource.ObjectMeta.Finalizers, tmSourceFinalizerName) {
 		// Object being deleted.
 		// Takedown tmsource pod.
-		if err := r.takedownTmSourcePod(config); err != nil {
+		if err := r.takedownTmSourcePod(config.pod); err != nil {
 			return ctrl.Result{}, err
 		}
 
@@ -91,6 +94,7 @@ func (r *TmSourceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 func (r *TmSourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&tmv1.TmSource{}).
+		//Owns(&v1.Pod{}).
 		//Watches(&source.Kind{
 		//	Type: &v1.Pod{},
 		//}, &handler.EnqueueRequestForOwner{OwnerType: &tmv1.TmSource{}, IsController: true}).
@@ -142,50 +146,30 @@ func (r *TmSourceReconciler) bootstrapTmSourcePod(config TmSourceConfig) error {
 		r.Log.Info("Pod of TmSource is " + podInstance.Name + ".")
 	}
 
+	// Take action according to site status
 	// We still create the source even if there is no site linked
 	if site == nil || site.Spec.Enabled {
 		r.Log.Info("Site is enabled.")
-		// In case metrics are different, delete and recreate
-		if podInstance != nil {
-			r.Log.Info("Deleting old pod...")
-			if err := r.deleteTmSourcePod(config, true); err != nil {
-				r.Log.Info("Could not delete pod " + config.pod.Name + ".")
-			}
-		}
-
-		// Create pod
-		r.Log.Info("Creating new pod...")
-		if err := createPod(r.Client, config.pod); err != nil {
-			r.Log.Error(err, "Could not create pod.")
-		}
-
-		r.Log.Info("TmSource pod is operationnal !")
-
-		return nil
+		return r.createTmSourcePod(podInstance, config)
 	} else if !site.Spec.Enabled {
 		r.Log.Info("Site is disabled.")
-		// Check if exist, if so delete
-		if podInstance != nil {
-			r.Log.Info("Deleting old pod...")
-			if err := r.deleteTmSourcePod(config, false); err != nil {
-				r.Log.Info("Could not delete pod " + config.pod.Name + ".")
-			}
-			r.Log.Info("TmSource pod is deleted !")
-		}
+		return r.takedownTmSourcePod(podInstance)
 	}
 
 	return nil
 }
 
-func (r *TmSourceReconciler) takedownTmSourcePod(config TmSourceConfig) error {
-	r.Log.Info("Deleting " + config.pod.Name + " pod.")
-
-	if err := r.deleteTmSourcePod(config, false); err != nil {
-		r.Log.Info("Could not delete pod " + config.pod.Name + ".")
-		return err
+func (r *TmSourceReconciler) takedownTmSourcePod(podInstance *v1.Pod) error {
+	// Check if exist, if so delete
+	if podInstance != nil {
+		r.Log.Info("Deleting old pod...")
+		if err := deletePod(r.Client, podInstance); err != nil {
+			r.Log.Info("Could not delete pod " + podInstance.Name + ".")
+			return err
+		}
+		r.Log.Info("TmSource pod is deleted !")
 	}
 
-	r.Log.Info("TmSource pod is deleted !")
 	return nil
 }
 
@@ -220,30 +204,21 @@ func (r *TmSourceReconciler) getTmSourcePod(config TmSourceConfig) (*v1.Pod, err
 	return &pod, nil
 }
 
-func (r *TmSourceReconciler) deleteTmSourcePod(config TmSourceConfig, waitForTermination bool) error {
-	if err := deletePod(r.Client, config.pod); err != nil {
-		r.Log.Info("Could not delete pod " + config.pod.Name + ".")
-		return err
-	}
-
-	if waitForTermination {
-		i := 0
-		for {
-			time.Sleep(1 * time.Second)
-			i++
-
-			pod, err := r.getTmSourcePod(config)
-			if err != nil {
-				return err
-			}
-			if pod == nil {
-				return nil
-			}
-
-			if i > podTerminationWaitTimeSec {
-				return nil
-			}
+func (r *TmSourceReconciler) createTmSourcePod(podInstance *v1.Pod, config TmSourceConfig) error {
+	// In case envvars are different, delete and recreate
+	if podInstance != nil && isPodEnvDifferent(podInstance, config.pod) {
+		if err := r.takedownTmSourcePod(podInstance); err != nil {
+			return err
 		}
+		return &RequeueError{}
+	} else if podInstance == nil {
+		// Create pod
+		r.Log.Info("Creating new pod...")
+		if err := createPod(r.Client, config.pod); err != nil && !errors.IsAlreadyExists(err) {
+			r.Log.Error(err, "Could not create pod.")
+		}
+
+		r.Log.Info("TmSource pod is operationnal !")
 	}
 
 	return nil
