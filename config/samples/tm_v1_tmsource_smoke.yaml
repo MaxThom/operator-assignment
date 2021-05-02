@@ -1,0 +1,7 @@
+apiVersion: tm.rocketlab.global/v1
+kind: TmSource
+metadata:
+  name: tm-4
+spec:
+  site: site-lc-2
+  metricname: smoke

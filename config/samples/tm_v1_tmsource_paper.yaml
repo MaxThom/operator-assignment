@@ -1,0 +1,7 @@
+apiVersion: tm.rocketlab.global/v1
+kind: TmSource
+metadata:
+  name: tm-2
+spec:
+  site: site-lc-1
+  metricname: paper

@@ -1,0 +1,10 @@
+domain: rocketlab.global
+repo: github.com/maxthom/rocketlab-controller
+resources:
+- group: tm
+  kind: Site
+  version: v1
+- group: tm
+  kind: TmSource
+  version: v1
+version: "2"

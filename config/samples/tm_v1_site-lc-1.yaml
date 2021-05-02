@@ -1,0 +1,6 @@
+apiVersion: tm.rocketlab.global/v1
+kind: Site
+metadata:
+  name: site-lc-1
+spec:
+  enabled: true
