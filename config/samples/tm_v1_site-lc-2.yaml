@@ -3,4 +3,4 @@ kind: Site
 metadata:
   name: site-lc-2
 spec:
-  enabled: true
+  enabled: false

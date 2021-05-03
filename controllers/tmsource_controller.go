@@ -18,16 +18,20 @@ package controllers
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	tmv1 "github.com/maxthom/rocketlab-controller/api/v1"
 )
@@ -55,11 +59,11 @@ func (r *TmSourceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	r.Log.Info("Event " + req.Name + " on " + req.Namespace)
 
 	// Get current tmsource
-	var tmsource tmv1.TmSource
-	if err := r.Get(ctx, req.NamespacedName, &tmsource); err != nil {
+	tmsource, err := r.getTmSource(ctx, req)
+	if err != nil {
 		return ResolveIfNotFound(err)
 	}
-	config := TmSourceConfig{ctx: ctx, tmsource: &tmsource, pod: getPodObject(tmsource), log: r.Log, req: req}
+	config := TmSourceConfig{ctx: ctx, tmsource: tmsource, pod: getPodObject(*tmsource), log: r.Log, req: req}
 
 	if tmsource.ObjectMeta.DeletionTimestamp.IsZero() {
 		// Object not being deleted.
@@ -94,17 +98,13 @@ func (r *TmSourceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 func (r *TmSourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&tmv1.TmSource{}).
-		//Owns(&v1.Pod{}).
-		//Watches(&source.Kind{
-		//	Type: &v1.Pod{},
-		//}, &handler.EnqueueRequestForOwner{OwnerType: &tmv1.TmSource{}, IsController: true}).
-		//Watches(&source.Kind{
-		//	Type: &v1.Pod{
-		//		ObjectMeta: metav1.ObjectMeta{
-		//			Labels: map[string]string{tmLabelAppKey: tmLabelAppValue},
-		//		},
-		//	},
-		//}, &handler.EnqueueRequestForOwner{OwnerType: &tmv1.TmSource{}, IsController: true}).
+		Watches(&source.Kind{
+			Type: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{tmLabelAppKey: tmLabelAppValue},
+				},
+			},
+		}, &handler.EnqueueRequestForObject{}).
 		Complete(r)
 }
 
@@ -119,7 +119,7 @@ func (r *TmSourceReconciler) registerFinalizer(config TmSourceConfig) error {
 
 func (r *TmSourceReconciler) unregisterFinalizer(config TmSourceConfig) error {
 	controllerutil.RemoveFinalizer(config.tmsource, tmSourceFinalizerName)
-	if err := r.Update(context.Background(), config.tmsource); err != nil {
+	if err := r.Update(context.Background(), config.tmsource); err != nil && !strings.Contains(err.Error(), "invalid") {
 		return err
 	}
 
@@ -221,4 +221,19 @@ func (r *TmSourceReconciler) getTmSourcePod(config TmSourceConfig) (*v1.Pod, err
 	}
 
 	return &pod, nil
+}
+
+func (r *TmSourceReconciler) getTmSource(ctx context.Context, req ctrl.Request) (*tmv1.TmSource, error) {
+	if strings.HasPrefix(req.Name, tmNamePrefix) {
+		// Mean its a pod event
+		req.NamespacedName.Name = strings.TrimPrefix(req.Name, tmNamePrefix)
+		r.Log.Info("Pod Event, tmsource is " + req.NamespacedName.Name + ".")
+	}
+
+	var tmsource tmv1.TmSource
+	if err := r.Get(ctx, req.NamespacedName, &tmsource); err != nil {
+		return nil, err
+	}
+
+	return &tmsource, nil
 }
