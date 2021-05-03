@@ -127,7 +127,6 @@ func (r *TmSourceReconciler) unregisterFinalizer(config TmSourceConfig) error {
 }
 
 func (r *TmSourceReconciler) bootstrapTmSourcePod(config TmSourceConfig) error {
-
 	// Get site associated with this source
 	site, err := r.getSourceSite(config)
 	if err != nil {
@@ -150,7 +149,7 @@ func (r *TmSourceReconciler) bootstrapTmSourcePod(config TmSourceConfig) error {
 	// We still create the source even if there is no site linked
 	if site == nil || site.Spec.Enabled {
 		r.Log.Info("Site is enabled.")
-		return r.createTmSourcePod(podInstance, config)
+		return r.checkTmSourcePod(podInstance, config)
 	} else if !site.Spec.Enabled {
 		r.Log.Info("Site is disabled.")
 		return r.takedownTmSourcePod(podInstance)
@@ -168,6 +167,26 @@ func (r *TmSourceReconciler) takedownTmSourcePod(podInstance *v1.Pod) error {
 			return err
 		}
 		r.Log.Info("TmSource pod is deleted !")
+	}
+
+	return nil
+}
+
+func (r *TmSourceReconciler) checkTmSourcePod(podInstance *v1.Pod, config TmSourceConfig) error {
+	// In case envvars are different, delete and recreate
+	if podInstance != nil && isPodEnvDifferent(podInstance, config.pod) {
+		if err := r.takedownTmSourcePod(podInstance); err != nil {
+			return err
+		}
+		return &RequeueError{}
+	} else if podInstance == nil {
+		// Create pod
+		r.Log.Info("Creating new pod...")
+		if err := createPod(r.Client, config.pod); err != nil && !errors.IsAlreadyExists(err) {
+			r.Log.Error(err, "Could not create pod.")
+		}
+
+		r.Log.Info("TmSource pod is operationnal !")
 	}
 
 	return nil
@@ -202,24 +221,4 @@ func (r *TmSourceReconciler) getTmSourcePod(config TmSourceConfig) (*v1.Pod, err
 	}
 
 	return &pod, nil
-}
-
-func (r *TmSourceReconciler) createTmSourcePod(podInstance *v1.Pod, config TmSourceConfig) error {
-	// In case envvars are different, delete and recreate
-	if podInstance != nil && isPodEnvDifferent(podInstance, config.pod) {
-		if err := r.takedownTmSourcePod(podInstance); err != nil {
-			return err
-		}
-		return &RequeueError{}
-	} else if podInstance == nil {
-		// Create pod
-		r.Log.Info("Creating new pod...")
-		if err := createPod(r.Client, config.pod); err != nil && !errors.IsAlreadyExists(err) {
-			r.Log.Error(err, "Could not create pod.")
-		}
-
-		r.Log.Info("TmSource pod is operationnal !")
-	}
-
-	return nil
 }
