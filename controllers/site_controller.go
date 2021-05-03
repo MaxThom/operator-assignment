@@ -126,7 +126,7 @@ func (r *SiteReconciler) bootstrapSite(config SiteConfig) error {
 		}
 
 	} else {
-		r.Log.Info("Site is desabled, deactivating tmsources...")
+		r.Log.Info("Site is disabled, deactivating tmsources...")
 		// Deactivate all pods
 		for _, tm := range tmSources {
 			r.deactivateTmSourcePod(getPodObject(tm))
