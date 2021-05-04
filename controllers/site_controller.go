@@ -89,7 +89,6 @@ func (r *SiteReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 func (r *SiteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&tmv1.Site{}).
-		//Owns(&tmv1.TmSourceList{}).
 		Complete(r)
 }
 

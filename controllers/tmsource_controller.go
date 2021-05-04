@@ -91,16 +91,6 @@ func (r *TmSourceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 func (r *TmSourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&tmv1.TmSource{}).
-		//Watches(&source.Kind{
-		//	Type: &v1.Pod{},
-		//}, &handler.EnqueueRequestForOwner{OwnerType: &tmv1.TmSource{}, IsController: true}).
-		//Watches(&source.Kind{
-		//	Type: &v1.Pod{
-		//		ObjectMeta: metav1.ObjectMeta{
-		//			Labels: map[string]string{tmLabelAppKey: tmLabelAppValue},
-		//		},
-		//	},
-		//}, &handler.EnqueueRequestForOwner{OwnerType: &tmv1.TmSource{}, IsController: true}).
 		Complete(r)
 }
 
