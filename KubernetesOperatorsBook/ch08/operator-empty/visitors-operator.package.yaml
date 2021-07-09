@@ -1,0 +1,5 @@
+packageName: visitors-operator
+channels:
+- name: stable
+  currentCSV: operator-empty.v0.0.1
+defaultChannel: stable

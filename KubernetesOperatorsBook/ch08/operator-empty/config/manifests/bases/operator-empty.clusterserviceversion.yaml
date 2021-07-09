@@ -1,0 +1,45 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: operator-empty.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: VisitorsApp is the Schema for the visitorsapps API
+      displayName: Visitors App
+      kind: VisitorsApp
+      name: visitorsapps.cache.example.org
+      version: v1alpha1
+  description: visitor app for traffic
+  displayName: visitors-operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - operatorksdkbook;maxthom;extracheesy
+  links:
+  - name: Operator Empty
+    url: https://operator-empty.domain
+  maturity: alpha
+  provider:
+    name: MaxThom
+    url: www.github.com/maxthom
+  version: 0.0.0

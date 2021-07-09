@@ -1,0 +1,19 @@
+domain: example.org
+layout:
+- go.kubebuilder.io/v2
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
+projectName: operator-empty
+repo: github.com/maxthom
+resources:
+- api:
+    crdVersion: v1beta1
+    namespaced: true
+  controller: true
+  domain: example.org
+  group: cache
+  kind: VisitorsApp
+  path: github.com/maxthom/api/v1alpha1
+  version: v1alpha1
+version: "3"
